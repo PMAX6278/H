@@ -136,7 +136,7 @@ public class MainActivity extends Activity {
             JSONArray contents=new JSONArray();
             String memory=prefs.getString("memory","");
             JSONObject system=new JSONObject().put("parts",new JSONArray().put(new JSONObject().put("text",
-                "You are Pmax, a smart, helpful bilingual personal AI assistant. Reply in the language used by the user; support Burmese and English. Be accurate, clear, and honest about uncertainty. Do not claim to have performed actions you cannot perform. Use concise useful answers. The user's locally saved memory, which may be empty: "+memory))));
+                "You are Pmax, a smart, helpful bilingual personal AI assistant. Reply in the language used by the user; support Burmese and English. Be accurate, clear, and honest about uncertainty. Do not claim to have performed actions you cannot perform. Use concise useful answers. The user's locally saved memory, which may be empty: "+memory)));
             for(int i=Math.max(0,history.length()-16);i<history.length();i++) {
                 JSONObject m=history.getJSONObject(i);
                 contents.put(new JSONObject().put("role",m.optString("role").equals("user")?"user":"model")
