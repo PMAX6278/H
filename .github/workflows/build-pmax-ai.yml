@@ -1,0 +1,33 @@
+name: Build Pmax AI APK
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'PmaxAI/**'
+      - '.github/workflows/build-pmax-ai.yml'
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: PmaxAI
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v4
+        with:
+          accept-android-sdk-licenses: true
+      - name: Install Android SDK
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Build debug APK
+        run: gradle --no-daemon assembleDebug
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Pmax-AI-debug-apk
+          path: PmaxAI/app/build/outputs/apk/debug/*.apk
