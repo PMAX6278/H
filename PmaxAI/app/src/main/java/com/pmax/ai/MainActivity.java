@@ -156,9 +156,11 @@ public class MainActivity extends Activity {
             StringBuilder answer=new StringBuilder();
             JSONArray parts=result.getJSONArray("candidates").getJSONObject(0).getJSONObject("content").getJSONArray("parts");
             for(int i=0;i<parts.length();i++) if(parts.getJSONObject(i).has("text")) answer.append(parts.getJSONObject(i).getString("text"));
-            String a=answer.toString().trim(); if(a.isEmpty()) a="No text response returned.";
+            String responseText=answer.toString().trim();
+            if(responseText.isEmpty()) responseText="No text response returned.";
+            final String finalAnswer=responseText;
             runOnUiThread(()->{
-                latestAnswer=a; addBubble("PMAX",a,false); appendHistory("model",a);
+                latestAnswer=finalAnswer; addBubble("PMAX",finalAnswer,false); appendHistory("model",finalAnswer);
                 status.setText("Ready"); busy=false; sendBtn.setEnabled(true);
             });
         } catch(Exception e) {
