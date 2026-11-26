@@ -1,0 +1,77 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MikroTik Ultimate Manager V2</title>
+<style>
+:root{color-scheme:dark;--bg:#080d18;--panel:#121e31;--line:#2a3b55;--muted:#9aabc4;--txt:#edf4ff;--cyan:#5bd7e8;--green:#54d69a}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 15% 0,#162b49,transparent 38%),var(--bg);color:var(--txt);font:14px system-ui}
+header{padding:19px max(16px,calc((100% - 1180px)/2));border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:12px;align-items:center}
+main{max-width:1180px;margin:20px auto;padding:0 15px}h1{font-size:21px;margin:0}h2{font-size:18px;margin:0}.muted,small{color:var(--muted)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px}.card{background:linear-gradient(145deg,#14233a,#0e1727);border:1px solid var(--line);border-radius:13px;padding:15px;margin:12px 0}
+.metric{font-size:23px;font-weight:700;margin-top:7px}.section{display:flex;justify-content:space-between;align-items:center;gap:10px;margin:23px 0 10px}
+.scroll{overflow-x:auto}table{width:100%;border-collapse:collapse;min-width:690px}td,th{text-align:left;padding:10px 9px;border-bottom:1px solid var(--line);font-size:13px}th{color:var(--muted)}
+button,.btn{background:#17364c;border:1px solid #34708a;color:white;border-radius:8px;padding:9px 12px;cursor:pointer;text-decoration:none;font-weight:600}
+button:hover,.btn:hover{filter:brightness(1.15)}.danger{background:#4b202b;border-color:#984454}.good{background:#17412f;border-color:#317b58}
+input,select{background:#080f1d;border:1px solid var(--line);border-radius:7px;padding:10px;color:white;max-width:100%}
+form.inline{display:inline-flex;gap:6px;align-items:center;flex-wrap:wrap}.formgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:10px;align-items:end}
+label{display:grid;gap:5px;color:var(--muted);font-size:12px}.flash{padding:11px;border-radius:8px;background:#17364c;margin:10px 0}.error{background:#4b202b}
+.login{max-width:380px;margin:12vh auto}.tag{color:var(--cyan)}.hint{font-size:12px;color:var(--muted);line-height:1.5}
+@media(max-width:600px){header{align-items:flex-start;flex-direction:column}.metric{font-size:20px}}
+</style></head><body>
+<header><div><h1>◈ MikroTik Ultimate Manager <span class="tag">V2</span></h1><small>Speed Control · Voucher Manager · RouterOS 7.x</small></div>
+{% if logged_in %}<div><span class="tag">{{ router_host }}</span>　<a class="btn" href="{{ url_for('logout') }}">Logout</a></div>{% endif %}</header>
+<main>
+{% with msgs=get_flashed_messages(with_categories=true) %}{% for cat,msg in msgs %}<div class="flash {{ 'error' if cat=='error' else '' }}">{{ msg }}</div>{% endfor %}{% endwith %}
+{% if not logged_in %}
+<div class="card login"><h2>Dashboard Login</h2><p class="muted">Enter your local dashboard password</p><form method="post" action="{{ url_for('login') }}"><input type="hidden" name="csrf" value="{{ csrf }}"><input name="password" type="password" placeholder="Dashboard password" required style="width:100%;margin:8px 0 12px"><button class="good" style="width:100%">Sign in</button></form></div>
+{% else %}
+{% if router_error %}<div class="flash error">Router API error: {{ router_error }}</div>{% endif %}
+<div class="section"><h2>Router overview</h2><a class="btn" href="{{ url_for('index') }}">↻ Refresh</a></div>
+<div class="grid">
+<div class="card"><small>Identity</small><div class="metric">{{ identity }}</div></div>
+<div class="card"><small>RouterOS</small><div class="metric">{{ version }}</div></div>
+<div class="card"><small>CPU load</small><div class="metric">{{ cpu }}%</div></div>
+<div class="card"><small>Uptime</small><div class="metric">{{ uptime }}</div></div>
+<div class="card"><small>Hotspot active</small><div class="metric">{{ active|length }}</div></div>
+<div class="card"><small>Queues</small><div class="metric">{{ queues|length }}</div></div>
+</div>
+
+<div class="section"><h2>Speed control</h2><small>Every action asks for confirmation</small></div>
+<div class="card">
+<h3>Create a speed limit for one device</h3>
+<form method="post" action="{{ url_for('queue_add') }}" onsubmit="return confirm('Create this Simple Queue on the router? Check device IP and speed first.')">
+<input type="hidden" name="csrf" value="{{ csrf }}"><div class="formgrid">
+<label>Queue name<input name="name" placeholder="phone-01" required maxlength="32"></label>
+<label>Device IP / target<input name="target" placeholder="10.10.11.11/32" required></label>
+<label>Upload / Download<input name="limit" placeholder="20M/20M" pattern="[0-9]+[KMGkmg]?/[0-9]+[KMGkmg]?" required></label>
+<div><button class="good">＋ Create queue</button></div></div></form>
+<p class="hint">Simple Queue max-limit format is upload/download. Example: 20M/20M. Assign a static DHCP lease to the device so its IP remains stable. This first version targets IPs; it does not apply a queue directly to a MAC address.</p>
+</div>
+<div class="card scroll"><table><tr><th>Queue</th><th>Target IP</th><th>Current limit</th><th>Change limit</th><th>Delete</th></tr>
+{% for q in queues %}<tr><td>{{ q.get('name','-') }}</td><td>{{ q.get('target','-') }}</td><td>{{ q.get('max-limit','-') }}</td><td>
+<form class="inline" method="post" action="{{ url_for('queue_update') }}" onsubmit="return confirm('Change speed for queue {{ q.get('name','') }}?')"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="id" value="{{ q.get('.id','') }}"><input name="limit" placeholder="e.g. 30M/30M" pattern="[0-9]+[KMGkmg]?/[0-9]+[KMGkmg]?" required><button class="good">Apply</button></form></td><td>
+<form method="post" action="{{ url_for('queue_delete') }}" onsubmit="return confirm('PERMANENTLY remove queue {{ q.get('name','') }}?')"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="id" value="{{ q.get('.id','') }}"><button class="danger">Delete</button></form></td></tr>
+{% else %}<tr><td colspan="5" class="muted">No simple queues found.</td></tr>{% endfor %}</table></div>
+
+<div class="section"><h2>Voucher manager</h2><small>RouterOS Hotspot user vouchers</small></div>
+<div class="card">
+<h3>Generate voucher codes</h3>
+<form method="post" action="{{ url_for('voucher_create') }}" onsubmit="return confirm('Create these Hotspot user vouchers on the router?')">
+<input type="hidden" name="csrf" value="{{ csrf }}"><div class="formgrid">
+<label>Quantity (1–50)<input type="number" name="count" min="1" max="50" value="5" required></label>
+<label>Prefix (optional)<input name="prefix" maxlength="5" value="V"></label>
+<label>Hotspot profile<select name="profile"><option value="">default profile</option>{% for p in profiles %}<option value="{{ p.get('name','') }}">{{ p.get('name','') }}</option>{% endfor %}</select></label>
+<label>Time limit (optional)<input name="uptime" placeholder="e.g. 1h or 1d"></label>
+<label>Data limit (optional)<input name="data_limit" placeholder="e.g. 500M or 2G"></label>
+<div><button class="good">＋ Generate vouchers</button></div></div></form>
+<p class="hint">Generated username and password are identical. Download the newly created batch as CSV. Check that your Mikropilot/custom login page submits RouterOS Hotspot username/password fields before distributing codes. Profile, time limit and data limit are optional.</p>
+{% if session_vouchers %}<p><strong>Last generated batch:</strong> {{ session_vouchers|length }} codes</p><a class="btn" href="{{ url_for('vouchers_download') }}">↓ Download CSV</a>{% endif %}
+</div>
+<div class="card scroll"><table><tr><th>Voucher / username</th><th>Profile</th><th>Uptime limit</th><th>Data limit</th><th>Comment</th><th>Delete</th></tr>
+{% for v in vouchers %}<tr><td>{{ v.get('name','-') }}</td><td>{{ v.get('profile','default') }}</td><td>{{ v.get('limit-uptime','unlimited') }}</td><td>{{ v.get('limit-bytes-total','unlimited') }}</td><td>{{ v.get('comment','') }}</td><td><form method="post" action="{{ url_for('voucher_delete') }}" onsubmit="return confirm('Delete voucher/user {{ v.get('name','') }}?')"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="id" value="{{ v.get('.id','') }}"><button class="danger">Delete</button></form></td></tr>
+{% else %}<tr><td colspan="6" class="muted">No Hotspot users/vouchers found.</td></tr>{% endfor %}</table></div>
+
+<div class="section"><h2>Active Hotspot users</h2></div>
+<div class="card scroll"><table><tr><th>User</th><th>IP</th><th>MAC</th><th>Uptime</th><th>Upload</th><th>Download</th></tr>
+{% for u in active %}<tr><td>{{ u.get('user','-') }}</td><td>{{ u.get('address','-') }}</td><td>{{ u.get('mac-address','-') }}</td><td>{{ u.get('uptime','-') }}</td><td>{{ fmt_bytes(u.get('bytes-in',0)) }}</td><td>{{ fmt_bytes(u.get('bytes-out',0)) }}</td></tr>
+{% else %}<tr><td colspan="6" class="muted">No active sessions.</td></tr>{% endfor %}</table></div>
+<p class="hint">Security: localhost only by default. Use a dedicated RouterOS API account restricted to the trusted LAN. Do not expose API or this dashboard to the public internet. Make a RouterOS backup before changes.</p>
+{% endif %}</main></body></html>
